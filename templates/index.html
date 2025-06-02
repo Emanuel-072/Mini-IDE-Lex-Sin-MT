@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini IDE - Analizador Léxico, Sintáctico y Máquina de Turing</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #FFF8E1; /* Tono beige cálido */
+        }
+        .token-box, .ast-node {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .error-box {
+            background-color: #fff3f3;
+            border: 1px solid #ffcdd2;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .editor-container {
+            position: relative;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            display: flex;
+        }
+        #codeEditor {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 10px;
+            border: none;
+            width: calc(100% - 40px);
+            resize: vertical;
+            min-height: 200px;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            white-space: pre;
+            overflow-x: auto;
+            letter-spacing: 0;
+        }
+        .line-numbers {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            width: 40px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            padding: 10px 8px;
+            text-align: right;
+            color: #6c757d;
+            user-select: none;
+            white-space: pre;
+        }
+        .error-underline {
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.1);
+            border-bottom: 2px wavy red;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .error-tooltip {
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #dc3545;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            white-space: nowrap;
+            display: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #errorOverlay {
+            position: absolute;
+            top: 0;
+            left: 40px;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            padding: 10px;
+        }
+        .results-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .turing-tape {
+            display: flex;
+            overflow-x: auto;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .tape-cell {
+            min-width: 40px;
+            height: 40px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 2px;
+            background: white;
+        }
+        .head-position {
+            background: #e3f2fd;
+            border-color: #90caf9;
+        }
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+        }
+        .tape-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .tape-cell {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 2px;
+            background: white;
+            font-family: monospace;
+            font-size: 16px;
+        }
+        .head-position {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            box-shadow: 0 0 5px rgba(33, 150, 243, 0.5);
+        }
+        .history-container {
+            max-height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .step-box {
+            padding: 10px;
+            margin: 5px 0;
+            background: #fff;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+        }
+        .tape-mini {
+            font-family: monospace;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin: 5px 0;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+        .head-position-mini {
+            background: #e3f2fd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .step-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">Mini IDE - Analizador Léxico, Sintáctico y Máquina de Turing</h1>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Información del Estudiante</h5>
+                        <p class="card-text">
+                            <strong>Nombre:</strong> Dominguez Ruiz Ruli Emanuel<br>
+                            <strong>Materia:</strong> Lenguajes y Autómatas I<br>
+                            <strong>Horario:</strong> 15:00 - 16:00<br>
+                            <strong>Carrera:</strong> ISC
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="analyzer-tab" data-bs-toggle="tab" data-bs-target="#analyzer" type="button" role="tab">
+                    Analizador Léxico/Sintáctico
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="turing-tab" data-bs-toggle="tab" data-bs-target="#turing" type="button" role="tab">
+                    Máquina de Turing
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- Pestaña del Analizador -->
+            <div class="tab-pane fade show active" id="analyzer" role="tabpanel">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-group mb-3">
+                            <label for="codeEditor" class="form-label">Editor de Código:</label>
+                            <div class="editor-container">
+                                <div class="line-numbers" id="lineNumbers"></div>
+                                <textarea class="form-control" id="codeEditor" 
+                                    spellcheck="false"
+                                    onscroll="syncScroll()" 
+                                    onkeyup="updateLineNumbers()"
+                                    oninput="updateLineNumbers()"
+                                    placeholder="Escribe tu código aquí..."></textarea>
+                                <div id="errorOverlay"></div>
+                            </div>
+                        </div>
+                        <div class="btn-group mb-4">
+                            <button class="btn btn-primary" onclick="analyzeLexer()">Análisis Léxico</button>
+                            <button class="btn btn-success" onclick="analyzeParser()">Análisis Sintáctico</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>Tokens</h3>
+                        <div id="tokenResults" class="results-container"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h3>Errores</h3>
+                        <div id="errorResults" class="results-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña de la Máquina de Turing -->
+            <div class="tab-pane fade" id="turing" role="tabpanel">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="form-group mb-3">
+                            <label for="turingInput" class="form-label">Entrada para la Máquina de Turing:</label>
+                            <input type="text" class="form-control" id="turingInput" placeholder="Ingresa una cadena de a's y b's">
+                            <small class="form-text text-muted">La máquina acepta cadenas de la forma a^n b^n (igual número de a's seguidas de igual número de b's). Por ejemplo: ab, aabb, aaabbb</small>
+                        </div>
+                        <button class="btn btn-primary mb-4" onclick="executeTuring()">Ejecutar Máquina de Turing</button>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <h3>Estado de la Máquina</h3>
+                        <div id="turingState" class="mb-3"></div>
+                        <h3>Cinta</h3>
+                        <div id="turingTape" class="turing-tape"></div>
+                        <h3>Historial de Pasos</h3>
+                        <div id="turingHistory" class="results-container"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateLineNumbers() {
+            const textarea = document.getElementById('codeEditor');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const lines = textarea.value.split('\n');
+            lineNumbers.innerHTML = lines.map((_, i) => `${i + 1}`).join('\n');
+        }
+
+        function syncScroll() {
+            const textarea = document.getElementById('codeEditor');
+            const lineNumbers = document.getElementById('lineNumbers');
+            lineNumbers.scrollTop = textarea.scrollTop;
+        }
+
+        function calculateCharacterWidth() {
+            // Crear un elemento de prueba
+            const testElement = document.createElement('span');
+            testElement.style.font = window.getComputedStyle(document.getElementById('codeEditor')).font;
+            testElement.style.visibility = 'hidden';
+            testElement.style.position = 'absolute';
+            testElement.textContent = 'X';
+            document.body.appendChild(testElement);
+            
+            // Obtener el ancho real de un carácter
+            const width = testElement.getBoundingClientRect().width;
+            
+            // Limpiar
+            document.body.removeChild(testElement);
+            return width;
+        }
+
+        function showErrorMarkers(errors) {
+            const textarea = document.getElementById('codeEditor');
+            const overlay = document.getElementById('errorOverlay');
+            overlay.innerHTML = '';
+
+            if (!Array.isArray(errors) || errors.length === 0) {
+                return;
+            }
+
+            const computedStyle = window.getComputedStyle(textarea);
+            const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.5;
+            const charWidth = calculateCharacterWidth();
+
+            errors.forEach(error => {
+                if (!error || typeof error.columna !== 'number' || typeof error.linea !== 'number') {
+                    console.warn('Error inválido:', error);
+                    return;
+                }
+
+                const errorMarker = document.createElement('div');
+                errorMarker.className = 'error-underline';
+                
+                // Calcular posición basada en línea y columna
+                const top = (error.linea - 1) * lineHeight;
+                // Usar la columna exacta para el posicionamiento horizontal
+                const left = error.columna * charWidth;
+                
+                errorMarker.style.left = `${left}px`;
+                errorMarker.style.top = `${top}px`;
+                errorMarker.style.width = `${charWidth}px`;
+                errorMarker.style.height = `${lineHeight}px`;
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'error-tooltip';
+                tooltip.textContent = `${error.tipo}: ${error.mensaje}`;
+                errorMarker.appendChild(tooltip);
+
+                errorMarker.addEventListener('mouseover', () => {
+                    tooltip.style.display = 'block';
+                    const tooltipWidth = tooltip.offsetWidth;
+                    tooltip.style.left = `${-tooltipWidth/2 + charWidth/2}px`;
+                    tooltip.style.top = `-25px`;
+                });
+
+                errorMarker.addEventListener('mouseout', () => {
+                    tooltip.style.display = 'none';
+                });
+
+                overlay.appendChild(errorMarker);
+            });
+        }
+
+        async function analyzeLexer() {
+            const code = document.getElementById('codeEditor').value;
+            try {
+                const response = await fetch('/analyze/lexer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const data = await response.json();
+                
+                // Asegurarse de que data.errors sea un array y ajustar la posición de la columna
+                const errors = Array.isArray(data.errors) ? data.errors.map(error => ({
+                    ...error,
+                    // Ajustar la columna sumando 1 para corregir el offset
+                    columna: error.columna + 1
+                })) : [];
+                
+                // Mostrar resultados y marcar errores
+                displayLexerResults(data);
+                showErrorMarkers(errors);
+
+                // Si hay errores, mostrarlos en la consola para debugging
+                if (errors.length > 0) {
+                    console.log('Errores léxicos encontrados:', errors);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al realizar el análisis léxico');
+            }
+        }
+
+        async function analyzeParser() {
+            const code = document.getElementById('codeEditor').value;
+            const lines = code.split('\n');
+            
+            try {
+                // Analizar cada línea por separado
+                const results = await Promise.all(lines.map(async (line, index) => {
+                    if (!line.trim()) return null; // Ignorar líneas vacías
+                    
+                    const response = await fetch('/analyze/parser', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ code: line })
+                    });
+
+                    const data = await response.json();
+                    return {
+                        ...data,
+                        lineNumber: index + 1,
+                        code: line
+                    };
+                }));
+
+                // Filtrar resultados nulos y procesar errores
+                const validResults = results.filter(result => result !== null);
+                const errors = [];
+                const successfulLines = [];
+
+                validResults.forEach(result => {
+                    if (Array.isArray(result.errors) && result.errors.length > 0) {
+                        // Procesar errores, ignorando errores internos
+                        const lineErrors = result.errors
+                            .filter(error => !error.mensaje?.includes('Lexer object'))
+                            .map(error => ({
+                                tipo: 'Error Sintáctico',
+                                mensaje: traducirMensajeError(error.mensaje || 'Error de sintaxis'),
+                                linea: result.lineNumber,
+                                codigo: result.code
+                            }));
+                        errors.push(...lineErrors);
+                    } else {
+                        // Línea analizada correctamente
+                        successfulLines.push({
+                            linea: result.lineNumber,
+                            codigo: result.code,
+                            ast: result.ast
+                        });
+                    }
+                });
+
+                // Mostrar resultados
+                displayParserResults({
+                    errors: errors,
+                    successfulLines: successfulLines
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al realizar el análisis sintáctico. Por favor, intente nuevamente.');
+            }
+        }
+
+        async function executeTuring() {
+            const input = document.getElementById('turingInput').value.trim();
+            const turingState = document.getElementById('turingState');
+            
+            try {
+                // Validación inicial del formato
+                if (input === '') {
+                    turingState.innerHTML = `
+                        <div class="alert alert-warning">
+                            Por favor ingrese una cadena para analizar
+                        </div>`;
+                    return;
+                }
+
+                // Validar que solo contenga a's y b's
+                if (!/^[ab]*$/.test(input)) {
+                    turingState.innerHTML = `
+                        <div class="alert alert-danger">
+                            La entrada solo puede contener los símbolos "a" y "b"
+                        </div>`;
+                    return;
+                }
+
+                // Simular los pasos de la máquina de Turing
+                const pasos = simularMaquinaTuring(input);
+
+                // Mostrar resultados
+                displayTuringResults({
+                    input: input,
+                    historial: pasos.historial,
+                    isValidFormat: pasos.esValida,
+                    numAs: (input.match(/a/g) || []).length,
+                    numBs: (input.match(/b/g) || []).length,
+                    mensaje: pasos.mensaje
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                turingState.innerHTML = `
+                    <div class="alert alert-danger">
+                        Error al procesar la cadena: ${error.message}
+                    </div>`;
+            }
+        }
+
+        function simularMaquinaTuring(input) {
+            const historial = [];
+            let cinta = ['B', ...input.split(''), 'B']; // B representa el blanco
+            let cabezal = 1; // Empezamos después del blanco
+            let estado = 'q0'; // Estado inicial
+            let paso = 0;
+            let esValida = true;
+            let mensaje = '';
+
+            // Función para registrar cada paso
+            function registrarPaso(accion) {
+                historial.push({
+                    paso: paso++,
+                    estado: estado,
+                    cinta: [...cinta],
+                    posicion_cabezal: cabezal,
+                    accion: accion
+                });
+            }
+
+            // Registro del estado inicial
+            registrarPaso('Inicio');
+
+            // Primera fase: verificar que todas las a's estén antes que las b's
+            let fase = 'verificar_orden';
+            let encontradoB = false;
+
+            for (let i = 1; i < cinta.length - 1; i++) {
+                if (fase === 'verificar_orden') {
+                    if (cinta[i] === 'b') {
+                        encontradoB = true;
+                    } else if (cinta[i] === 'a' && encontradoB) {
+                        esValida = false;
+                        mensaje = 'Se encontró una "a" después de una "b"';
+                        registrarPaso('Error: a después de b');
+                        break;
+                    }
+                    registrarPaso(`Verificando orden en posición ${i}`);
+                }
+            }
+
+            if (esValida) {
+                // Segunda fase: contar y comparar a's y b's
+                let contadorA = 0;
+                let contadorB = 0;
+
+                // Contar a's
+                for (let i = 1; i < cinta.length - 1; i++) {
+                    if (cinta[i] === 'a') {
+                        contadorA++;
+                        registrarPaso(`Contando a's: ${contadorA}`);
+                    }
+                }
+
+                // Contar b's
+                for (let i = 1; i < cinta.length - 1; i++) {
+                    if (cinta[i] === 'b') {
+                        contadorB++;
+                        registrarPaso(`Contando b's: ${contadorB}`);
+                    }
+                }
+
+                if (contadorA !== contadorB) {
+                    esValida = false;
+                    mensaje = `Número diferente de a's (${contadorA}) y b's (${contadorB})`;
+                    registrarPaso('Error: cantidades diferentes');
+                } else {
+                    mensaje = `¡Cadena válida! Contiene ${contadorA} a's seguidas de ${contadorB} b's`;
+                    registrarPaso('Cadena aceptada');
+                }
+            }
+
+            return {
+                historial: historial,
+                esValida: esValida,
+                mensaje: mensaje
+            };
+        }
+
+        function displayLexerResults(data) {
+            const tokenResults = document.getElementById('tokenResults');
+            const errorResults = document.getElementById('errorResults');
+
+            // Mostrar tokens
+            if (Array.isArray(data.tokens) && data.tokens.length > 0) {
+                tokenResults.innerHTML = data.tokens.map(token => `
+                    <div class="token-box">
+                        <strong>Tipo:</strong> ${token.tipo}<br>
+                        <strong>Valor:</strong> ${token.valor}<br>
+                        <strong>Línea:</strong> ${token.linea}<br>
+                        <strong>Columna:</strong> ${token.columna}
+                    </div>
+                `).join('');
+            } else {
+                tokenResults.innerHTML = '<div class="alert alert-info">No se encontraron tokens</div>';
+            }
+
+            // Mostrar errores
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+                errorResults.innerHTML = data.errors.map(error => `
+                    <div class="error-box">
+                        <strong>Tipo:</strong> ${error.tipo}<br>
+                        <strong>Mensaje:</strong> ${error.mensaje}<br>
+                        <strong>Línea:</strong> ${error.linea}<br>
+                        <strong>Columna:</strong> ${error.columna}
+                    </div>
+                `).join('');
+            } else {
+                errorResults.innerHTML = '<div class="alert alert-success">No se encontraron errores</div>';
+            }
+        }
+
+        function displayParserResults(data) {
+            const errorResults = document.getElementById('errorResults');
+            const tokenResults = document.getElementById('tokenResults');
+
+            // Limpiar resultados anteriores
+            errorResults.innerHTML = '';
+            tokenResults.innerHTML = '';
+
+            // Mostrar líneas analizadas correctamente
+            if (data.successfulLines && data.successfulLines.length > 0) {
+                tokenResults.innerHTML = `
+                    <div class="alert alert-success">
+                        <h4>Líneas analizadas correctamente:</h4>
+                        ${data.successfulLines.map(line => `
+                            <div class="token-box">
+                                <strong>Línea ${line.linea}:</strong> ${line.codigo}
+                                ${line.ast ? `<pre>${JSON.stringify(line.ast, null, 2)}</pre>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // Mostrar errores sintácticos
+            if (Array.isArray(data.errors) && data.errors.length > 0) {
+                errorResults.innerHTML = data.errors.map(error => `
+                    <div class="error-box">
+                        <strong>Tipo:</strong> ${error.tipo}<br>
+                        <strong>Línea ${error.linea}:</strong> ${error.codigo}<br>
+                        <strong>Mensaje:</strong> ${error.mensaje}
+                    </div>
+                `).join('');
+            } else if (data.successfulLines && data.successfulLines.length > 0) {
+                errorResults.innerHTML = '<div class="alert alert-success">No se encontraron errores sintácticos.</div>';
+            }
+        }
+
+        function traducirMensajeError(mensaje) {
+            // Mapeo de mensajes de error comunes
+            const traducciones = {
+                'Syntax error': 'Error de sintaxis',
+                'Invalid syntax': 'Sintaxis inválida',
+                'Unexpected token': 'Token inesperado',
+                'Expected': 'Se esperaba',
+                'Invalid expression': 'Expresión inválida',
+                'Missing semicolon': 'Falta punto y coma',
+                'Unexpected end of input': 'Final inesperado de la entrada',
+                'Invalid statement': 'Declaración inválida',
+                'Unexpected character': 'Carácter inesperado',
+                'Invalid identifier': 'Identificador inválido',
+                'Lexer object has no attribute': 'Error interno del analizador',
+                'Error de sintaxis en el token': 'Error de sintaxis en la expresión'
+            };
+
+            // Buscar coincidencias parciales en el mensaje
+            for (const [ingles, espanol] of Object.entries(traducciones)) {
+                if (mensaje.includes(ingles)) {
+                    return mensaje.replace(ingles, espanol);
+                }
+            }
+
+            // Si no hay traducción, devolver el mensaje original
+            return mensaje;
+        }
+
+        function displayTuringResults(data) {
+            const turingState = document.getElementById('turingState');
+            const turingTape = document.getElementById('turingTape');
+            const turingHistory = document.getElementById('turingHistory');
+
+            // Limpiar contenedores
+            turingState.innerHTML = '';
+            turingTape.innerHTML = '';
+            turingHistory.innerHTML = '';
+
+            // Determinar si la cadena es válida
+            const isValid = data.isValidFormat && data.numAs === data.numBs;
+            let mensaje = '';
+
+            if (!data.isValidFormat) {
+                mensaje = 'La cadena debe tener todas las "a" antes que las "b"';
+            } else if (data.numAs !== data.numBs) {
+                mensaje = `La cadena debe tener igual número de "a"s y "b"s. Encontrados: ${data.numAs} a's y ${data.numBs} b's`;
+            } else {
+                mensaje = `¡Cadena válida! Contiene ${data.numAs} a's seguidas de ${data.numBs} b's`;
+            }
+
+            // Mostrar el estado
+            turingState.innerHTML = `
+                <div class="alert alert-${isValid ? 'success' : 'danger'}">
+                    <h4>${isValid ? '¡Cadena Aceptada!' : 'Cadena Rechazada'}</h4>
+                    <p>${mensaje}</p>
+                    <hr>
+                    <p><strong>Explicación:</strong> ${
+                        isValid 
+                            ? `La cadena cumple con el formato a^${data.numAs}b^${data.numBs} donde n=${data.numAs}`
+                            : 'La cadena no cumple con el formato requerido a^n b^n'
+                    }</p>
+                </div>
+            `;
+
+            // Mostrar la cinta si hay historial
+            if (data.historial && data.historial.length > 0) {
+                const ultimoPaso = data.historial[data.historial.length - 1];
+                turingTape.innerHTML = `
+                    <div class="tape-container">
+                        ${Array.from(data.input).map((simbolo, index) => `
+                            <div class="tape-cell ${index === ultimoPaso.posicion_cabezal ? 'head-position' : ''}">
+                                ${simbolo}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                // Mostrar historial
+                turingHistory.innerHTML = `
+                    <div class="history-container">
+                        <h4>Historial de Ejecución</h4>
+                        ${data.historial.map((paso, index) => `
+                            <div class="step-box">
+                                <strong>Paso ${index + 1}</strong>
+                                <div class="tape-mini">
+                                    ${Array.from(paso.cinta).map((simbolo, i) => `
+                                        <span class="${i === paso.posicion_cabezal ? 'head-position-mini' : ''}">${simbolo}</span>
+                                    `).join('')}
+                                </div>
+                                <div class="step-details">
+                                    <span>Estado: ${paso.estado}</span>
+                                    <span>Acción: ${paso.accion || ''}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // Inicializar números de línea
+        updateLineNumbers();
+
+        // Inicializar el editor
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLineNumbers();
+            const textarea = document.getElementById('codeEditor');
+            textarea.addEventListener('input', function() {
+                // Limpiar marcadores de error cuando el usuario escribe
+                document.getElementById('errorOverlay').innerHTML = '';
+            });
+        });
+
+        // Limpiar marcadores de error cuando el usuario modifica el código
+        document.getElementById('codeEditor').addEventListener('input', function() {
+            document.getElementById('errorOverlay').innerHTML = '';
+            document.getElementById('errorResults').innerHTML = '';
+            document.getElementById('tokenResults').innerHTML = '';
+        });
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
