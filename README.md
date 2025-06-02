@@ -110,16 +110,16 @@ La máquina implementada valida cadenas con igual número de 'a's seguidas de ig
 
 #### Expresiones Válidas
 ```python
-x = 42;
-resultado = (a + b) * 2;
-suma = valor1 + valor2;
+x = 42
+resultado = (a + b) * 2
+suma = valor1 + valor2
 ```
 
 #### Expresiones Inválidas
 ```python
-x = ;           // Falta expresión
-y = (a + b;     // Falta paréntesis
-2 + * 3;        // Operadores mal utilizados
+x = ;           // Carácter ilegal
+y = (a + b     // Falta paréntesis
+2 + * 3        // Operadores mal utilizados
 ```
 
 ## 🔍 Características del IDE
