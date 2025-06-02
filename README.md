@@ -30,6 +30,7 @@ Un IDE interactivo que implementa análisis léxico, sintáctico y una máquina 
 - 🔍 Análisis léxico y sintáctico en tiempo real
 - 🤖 Máquina de Turing para validación de cadenas
 - 📝 Interfaz intuitiva y amigable
+  ![Interfaz del IDE](static/Menu_IDE.png)
 
 ## 🛠️ Instalación
 
